@@ -26,15 +26,30 @@ class EmailService
         $this->mailer->SMTPSecure = Config::get('smtp.encryption');
         $this->mailer->Port = Config::get('smtp.port');
         $this->mailer->isHTML(true);
+        
+        // Set character encoding
+        $this->mailer->CharSet = 'UTF-8';
+        $this->mailer->Encoding = 'base64';
     }
 
     public function sendEmail(string $to, string $subject, string $body, array $variables = []): bool
     {
         try {
             $this->mailer->clearAddresses();
-            $this->mailer->addAddress($to);
-            $this->mailer->Subject = $this->replaceVariables($subject, $variables);
+            
+            // Handle comma-separated email addresses
+            $emails = array_map('trim', explode(',', $to));
+            foreach ($emails as $email) {
+                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                    throw new \RuntimeException("Invalid email address: {$email}");
+                }
+                $this->mailer->addAddress($email);
+            }
+            
+            // Ensure proper encoding of subject and body
+            $this->mailer->Subject = mb_encode_mimeheader($this->replaceVariables($subject, $variables), 'UTF-8', 'B');
             $this->mailer->Body = $this->replaceVariables($body, $variables);
+            $this->mailer->AltBody = strip_tags($this->mailer->Body);
             
             return $this->mailer->send();
         } catch (Exception $e) {
