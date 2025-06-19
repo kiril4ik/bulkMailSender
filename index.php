@@ -6,6 +6,7 @@ use App\Config\Config;
 use App\Controller\EmailController;
 use App\Service\EmailService;
 use App\Service\ExcelService;
+use App\Middleware\IpWhitelistMiddleware;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
@@ -14,6 +15,10 @@ use Symfony\Component\Security\Csrf\TokenStorage\NativeSessionTokenStorage;
 
 // Initialize configuration
 Config::init();
+
+// Initialize IP whitelist middleware
+$allowedIps = Config::get('security.allowed_ips', []);
+$ipWhitelistMiddleware = new IpWhitelistMiddleware($allowedIps);
 
 // Initialize CSRF protection
 $csrfTokenManager = new CsrfTokenManager(
@@ -30,6 +35,14 @@ $controller = new EmailController($emailService, $excelService, $csrfTokenManage
 
 // Handle request
 $request = Request::createFromGlobals();
+
+// Check IP whitelist
+$ipResponse = $ipWhitelistMiddleware->handle($request);
+if ($ipResponse !== null) {
+    $ipResponse->send();
+    exit;
+}
+
 $path = $request->getPathInfo();
 
 try {

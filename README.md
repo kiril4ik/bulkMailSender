@@ -60,6 +60,28 @@ SMTP_ENCRYPTION=tls
 # Application Configuration
 APP_ENV=dev
 APP_SECRET=your-secret-key-here
+
+# Security Configuration
+ALLOWED_IPS=192.168.1.100,10.0.0.0/8,172.16.0.0/12
+```
+
+### IP Whitelist Configuration
+The `ALLOWED_IPS` setting supports multiple formats:
+- Single IP: `192.168.1.100`
+- CIDR notation: `192.168.1.0/24`
+- Wildcard notation: `192.168.*.*`
+- Multiple IPs separated by commas: `192.168.1.100,10.0.0.0/8`
+
+Examples:
+```env
+# Allow specific IPs
+ALLOWED_IPS=192.168.1.100,192.168.1.101
+
+# Allow IP ranges
+ALLOWED_IPS=192.168.1.0/24,10.0.0.0/8
+
+# Allow all (empty or not set)
+ALLOWED_IPS=
 ```
 
 ### Excel File Format

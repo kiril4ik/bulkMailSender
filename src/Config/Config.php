@@ -25,6 +25,9 @@ class Config
                 'env' => $_ENV['APP_ENV'],
                 'secret' => $_ENV['APP_SECRET'],
             ],
+            'security' => [
+                'allowed_ips' => isset($_ENV['ALLOWED_IPS']) ? explode(',', $_ENV['ALLOWED_IPS']) : [],
+            ],
         ];
     }
 
