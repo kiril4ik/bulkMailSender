@@ -36,27 +36,25 @@ class EmailController
 
     public function preview(Request $request): JsonResponse
     {
-        $this->validateCsrfToken($request, 'email_form');
+        $this->validateCsrfToken($request);
 
-        $content = json_decode($request->getContent(), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('Invalid JSON data');
+        $data = json_decode($request->getContent(), true);
+        if (!$data) {
+            return new JsonResponse(['error' => 'Invalid JSON data'], 400);
         }
 
-        $subject = $content['subject'] ?? '';
-        $body = $content['body'] ?? '';
-        $recipients = $content['recipients'] ?? [];
-
-        if (empty($subject) || empty($body) || empty($recipients)) {
-            throw new \RuntimeException('Missing required fields');
+        if (!isset($data['subject']) || !isset($data['body']) || !isset($data['recipients'])) {
+            return new JsonResponse(['error' => 'Missing required fields'], 400);
         }
-
+        
         $previews = [];
-        foreach ($recipients as $recipient) {
+        foreach ($data['recipients'] as $recipient) {            
             $previews[] = [
                 'email' => $recipient['email'],
-                'subject' => $this->replaceVariables($subject, $recipient),
-                'body' => $this->replaceVariables($body, $recipient)
+                // Global CC overrides individual CC from Excel
+                'cc' => empty($data['cc']) ? ($recipient['cc'] ?? '') : $data['cc'],
+                'subject' => $this->replaceVariables($data['subject'], $recipient),
+                'body' => $this->replaceVariables($data['body'], $recipient)
             ];
         }
 
@@ -65,29 +63,50 @@ class EmailController
 
     public function send(Request $request): JsonResponse
     {
-        $this->validateCsrfToken($request, 'email_form');
+        try {
+            $this->validateCsrfToken($request);
 
-        $content = json_decode($request->getContent(), true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \RuntimeException('Invalid JSON data');
+            $data = json_decode($request->getContent(), true);
+            if (!$data) {
+                return new JsonResponse(['error' => 'Invalid JSON data'], 400);
+            }
+
+            if (!isset($data['subject']) || !isset($data['body']) || !isset($data['recipients'])) {
+                return new JsonResponse(['error' => 'Missing required fields'], 400);
+            }
+
+
+            $results = [];
+            foreach ($data['recipients'] as $recipient) {
+                try {
+                    $this->emailService->sendEmail(
+                        $recipient['email'],
+                        $this->replaceVariables($data['subject'], $recipient),
+                        $this->replaceVariables($data['body'], $recipient),
+                        $recipient,
+                        // Global CC overrides individual CC from Excel
+                        empty($data['cc']) ? ($recipient['cc'] ?? '') : $data['cc']
+                    );
+                    $results[$recipient['email']] = ['status' => 'success'];
+                } catch (\Exception $e) {
+                    $results[$recipient['email']] = [
+                        'status' => 'error',
+                        'message' => $e->getMessage()
+                    ];
+                }
+            }
+
+            return new JsonResponse(['results' => $results]);
+        } catch (\Exception $e) {
+            return new JsonResponse([
+                'error' => 'Server error: ' . $e->getMessage()
+            ], 403);
         }
-
-        $subject = $content['subject'] ?? '';
-        $body = $content['body'] ?? '';
-        $recipients = $content['recipients'] ?? [];
-
-        if (empty($subject) || empty($body) || empty($recipients)) {
-            throw new \RuntimeException('Missing required fields');
-        }
-
-        $results = $this->emailService->sendBulkEmails($recipients, $subject, $body);
-
-        return new JsonResponse(['results' => $results]);
     }
 
     public function uploadExcel(Request $request): JsonResponse
     {
-        $this->validateCsrfTokenForm($request, 'email_form');
+        $this->validateCsrfTokenForm($request);
 
         $file = $request->files->get('excel_file');
         if (!$file) {
@@ -102,17 +121,17 @@ class EmailController
         }
     }
 
-    private function validateCsrfToken(Request $request, string $tokenId): void
+    private function validateCsrfToken(Request $request): void
     {
-        $token = new CsrfToken($tokenId, $request->headers->get('X-CSRF-Token'));
+        $token = new CsrfToken('email_form', $request->headers->get('X-CSRF-Token'));
         if (!$this->csrfTokenManager->isTokenValid($token)) {
             throw new \RuntimeException('Invalid CSRF token');
         }
     }
 
-    private function validateCsrfTokenForm(Request $request, string $tokenId): void
+    private function validateCsrfTokenForm(Request $request): void
     {
-        $token = new CsrfToken($tokenId, $request->request->get('_csrf_token'));
+        $token = new CsrfToken('email_form', $request->request->get('_csrf_token'));
         if (!$this->csrfTokenManager->isTokenValid($token)) {
             throw new \RuntimeException('Invalid CSRF token');
         }

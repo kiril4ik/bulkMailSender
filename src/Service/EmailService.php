@@ -32,18 +32,30 @@ class EmailService
         $this->mailer->Encoding = 'base64';
     }
 
-    public function sendEmail(string $to, string $subject, string $body, array $variables = []): bool
+    public function sendEmail(string $to, string $subject, string $body, array $variables = [], string $cc = ''): bool
     {
         try {
             $this->mailer->clearAddresses();
+            $this->mailer->clearCCs();
             
-            // Handle comma-separated email addresses
+            // Handle comma-separated email addresses for TO
             $emails = array_map('trim', explode(',', $to));
             foreach ($emails as $email) {
                 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     throw new \RuntimeException("Invalid email address: {$email}");
                 }
                 $this->mailer->addAddress($email);
+            }
+            
+            // Handle CC if provided
+            if (!empty($cc)) {
+                $ccEmails = array_map('trim', explode(',', $cc));
+                foreach ($ccEmails as $ccEmail) {
+                    if (!filter_var($ccEmail, FILTER_VALIDATE_EMAIL)) {
+                        throw new \RuntimeException("Invalid CC email address: {$ccEmail}");
+                    }
+                    $this->mailer->addCC($ccEmail);
+                }
             }
             
             // Ensure proper encoding of subject and body
@@ -57,7 +69,7 @@ class EmailService
         }
     }
 
-    public function sendBulkEmails(array $recipients, string $subject, string $body): array
+    public function sendBulkEmails(array $recipients, string $subject, string $body, string $cc = ''): array
     {
         $results = [];
         
@@ -67,7 +79,8 @@ class EmailService
                     $recipient['email'],
                     $subject,
                     $body,
-                    $recipient
+                    $recipient,
+                    empty($cc) ? ($recipient['cc'] ?? '') : $cc
                 );
                 $results[$recipient['email']] = ['status' => 'success'];
             } catch (\Exception $e) {

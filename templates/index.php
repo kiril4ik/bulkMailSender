@@ -31,6 +31,12 @@
             </div>
 
             <div class="mb-3">
+                <label for="cc" class="form-label">CC (Optional)</label>
+                <input type="text" class="form-control" id="cc" name="cc" placeholder="Enter CC email addresses separated by commas">
+                <small class="form-text text-muted">Overrides all 'cc' addresses from the Excel file</small>
+            </div>
+
+            <div class="mb-3">
                 <label for="editor" class="form-label">Email Content</label>
                 <div id="editor" style="height: 300px;"></div>
                 <input type="hidden" name="body" id="body">
@@ -108,6 +114,7 @@
         document.getElementById('previewBtn').addEventListener('click', async function() {
             const requestData = {
                 subject: document.getElementById('subject').value,
+                cc: document.getElementById('cc').value,
                 body: quill.root.innerHTML,
                 recipients: recipients
             };
@@ -139,8 +146,10 @@
                 data.previews.forEach(preview => {
                     const previewItem = document.createElement('div');
                     previewItem.className = 'preview-item';
+                    const ccText = preview.cc ? `<p><strong>CC:</strong> ${preview.cc}</p>` : '';
                     previewItem.innerHTML = `
                         <h5>To: ${preview.email}</h5>
+                        ${ccText}
                         <h6>Subject: ${preview.subject}</h6>
                         <div>${preview.body}</div>
                     `;
@@ -160,6 +169,7 @@
 
             const requestData = {
                 subject: document.getElementById('subject').value,
+                cc: document.getElementById('cc').value,
                 body: quill.root.innerHTML,
                 recipients: recipients
             };
@@ -174,12 +184,19 @@
                     body: JSON.stringify(requestData)
                 });
                 
-                if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || 'Failed to send emails');
+                let data;
+                const responseText = await response.text();
+                
+                try {
+                    data = JSON.parse(responseText);
+                } catch (parseError) {
+                    throw new Error('Invalid response from server: ' + responseText);
                 }
                 
-                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send emails');
+                }
+                
                 if (data.error) {
                     alert(data.error);
                     return;

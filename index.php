@@ -8,6 +8,7 @@ use App\Service\EmailService;
 use App\Service\ExcelService;
 use App\Middleware\IpWhitelistMiddleware;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Security\Csrf\CsrfTokenManager;
 use Symfony\Component\Security\Csrf\TokenGenerator\UriSafeTokenGenerator;
@@ -60,10 +61,15 @@ try {
             $response = $controller->uploadExcel($request);
             break;
         default:
-            throw new RuntimeException('Not found', 404);
+            $response = new JsonResponse(['error' => 'Not found'], 404);
     }
 } catch (Exception $e) {
     $response = new JsonResponse(['error' => $e->getMessage()], $e->getCode() ?: 500);
+}
+
+// Ensure we have a valid response
+if (!$response instanceof Response) {
+    $response = new JsonResponse(['error' => 'Invalid response from server'], 500);
 }
 
 $response->send(); 

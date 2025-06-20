@@ -88,23 +88,32 @@ ALLOWED_IPS=
 Your Excel file should have:
 - First row as headers
 - Required column: `email`
+- Optional column: `cc` (for individual CC addresses)
 - Additional columns can be used as variables in email templates
 
 Example Excel format:
-| email | name | company |
-|-------|------|---------|
-| john@example.com | John Doe | Company A |
-| jane@example.com | Jane Smith | Company B |
+| email | name | company | cc |
+|-------|------|---------|----|
+| john@example.com | John Doe | Company A | manager@company.com |
+| jane@example.com | Jane Smith | Company B | |
+| bob@example.com | Bob Wilson | Company C | admin@company.com, hr@company.com |
 
 ## Usage
 
 1. Access the application through your web server
 2. Enter email subject
-3. Create email content using the WYSIWYG editor
+3. Optionally enter CC addresses (comma-separated) - this will override any CC addresses from the Excel file
+4. Create email content using the WYSIWYG editor
    - Use variables like `{name}` or `{company}` for personalization
-4. Upload Excel file with recipient data
-5. Click "Preview" to see how emails will look for each recipient
-6. Click "Send" to deliver the emails
+5. Upload Excel file with recipient data
+6. Click "Preview" to see how emails will look for each recipient (including CC information)
+7. Click "Send" to deliver the emails
+
+### CC Functionality
+- **Excel CC**: Add a `cc` column to your Excel file for individual CC addresses per recipient
+- **Global CC Override**: Use the CC field on the web page to override all CC addresses for all emails
+- **Multiple CC**: Separate multiple CC addresses with commas
+- **Preview**: CC information is shown in the email preview
 
 ## Security
 
