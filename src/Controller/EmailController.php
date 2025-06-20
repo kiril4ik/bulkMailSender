@@ -75,9 +75,11 @@ class EmailController
                 return new JsonResponse(['error' => 'Missing required fields'], 400);
             }
 
+            // Limit to 5 recipients per request
+            $recipients = array_slice($data['recipients'], 0, 5);
 
             $results = [];
-            foreach ($data['recipients'] as $recipient) {
+            foreach ($recipients as $recipient) {
                 try {
                     $this->emailService->sendEmail(
                         $recipient['email'],

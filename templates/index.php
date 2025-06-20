@@ -167,56 +167,89 @@
         document.getElementById('sendBtn').addEventListener('click', async function() {
             if (!confirm('Are you sure you want to send these emails?')) return;
 
+            const sendBtn = document.getElementById('sendBtn');
+            const originalText = sendBtn.textContent;
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
             const requestData = {
                 subject: document.getElementById('subject').value,
                 cc: document.getElementById('cc').value,
-                body: quill.root.innerHTML,
-                recipients: recipients
+                body: quill.root.innerHTML
             };
 
-            try {
-                const response = await fetch('/send', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(requestData)
-                });
-                
-                let data;
-                const responseText = await response.text();
-                
-                try {
-                    data = JSON.parse(responseText);
-                } catch (parseError) {
-                    throw new Error('Invalid response from server: ' + responseText);
-                }
-                
-                if (!response.ok) {
-                    throw new Error(data.error || 'Failed to send emails');
-                }
-                
-                if (data.error) {
-                    alert(data.error);
-                    return;
-                }
-                
-                let successCount = 0;
-                let errorCount = 0;
-                
-                Object.values(data.results).forEach(result => {
-                    if (result.status === 'success') {
-                        successCount++;
-                    } else {
-                        errorCount++;
-                    }
-                });
+            let allResults = {};
+            let totalProcessed = 0;
+            let totalSuccess = 0;
+            let totalErrors = 0;
+            let currentRecipients = [...recipients];
 
-                alert(`Emails sent: ${successCount} successful, ${errorCount} failed`);
+            try {
+                while (currentRecipients.length > 0) {
+                    // Take next 5 recipients
+                    const chunkRecipients = currentRecipients.splice(0, 5);
+                    
+                    const chunkRequestData = {
+                        ...requestData,
+                        recipients: chunkRecipients
+                    };
+
+                    const response = await fetch('/send', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken
+                        },
+                        body: JSON.stringify(chunkRequestData)
+                    });
+                    
+                    let data;
+                    const responseText = await response.text();
+                    
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (parseError) {
+                        throw new Error('Invalid response from server: ' + responseText);
+                    }
+                    
+                    if (!response.ok) {
+                        throw new Error(data.error || 'Failed to send emails');
+                    }
+                    
+                    if (data.error) {
+                        alert(data.error);
+                        break;
+                    }
+                    
+                    // Merge results
+                    Object.assign(allResults, data.results);
+                    
+                    // Update counters
+                    totalProcessed += chunkRecipients.length;
+                    Object.values(data.results).forEach(result => {
+                        if (result.status === 'success') {
+                            totalSuccess++;
+                        } else {
+                            totalErrors++;
+                        }
+                    });
+
+                    // Update progress
+                    sendBtn.textContent = `Sending... (${totalProcessed}/${recipients.length})`;
+                    
+                    // Small delay between chunks to avoid overwhelming the server
+                    if (currentRecipients.length > 0) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+
+                alert(`Emails sent: ${totalSuccess} successful, ${totalErrors} failed (${totalProcessed} total processed)`);
             } catch (error) {
                 console.error('Send error:', error);
                 alert('Error sending emails: ' + error.message);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = originalText;
             }
         });
     </script>
